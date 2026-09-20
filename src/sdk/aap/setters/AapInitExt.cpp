@@ -22,6 +22,8 @@ namespace MagicPodsCore
                model == static_cast<unsigned short>(AapModelIds::airpodspro3) ||
                model == static_cast<unsigned short>(AapModelIds::airpodsprousbc) ||
                model == static_cast<unsigned short>(AapModelIds::airpods4anc) ||
+               model == static_cast<unsigned short>(AapModelIds::airpods5wcc) ||
+               model == static_cast<unsigned short>(AapModelIds::airpods5) ||
                model == static_cast<unsigned short>(AapModelIds::airpodsmax2);
     }
 }
