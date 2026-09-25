@@ -18,11 +18,10 @@ namespace MagicPodsCore
         bool isAvailable = false;
         Event<Capability> _onChanged{};
         virtual nlohmann::json CreateJsonBody();
+        virtual void Reset();
 
     public:
         explicit Capability(const std::string &name, bool isReadOnly) : name(name), isReadOnly(isReadOnly) {}
-        // Public so the device can clear the values itself when its client is given up on while the adapter still reports the device as connected.
-        virtual void Reset();
         Event<Capability> &GetChangedEvent()
         {
             return _onChanged;

@@ -6,6 +6,7 @@
 
 #include "device/capabilities/Capability.h"
 #include "client/Client.h"
+#include "client/ClientState.h"
 #include "Event.h"
 #include "StringUtils.h"
 #include "Logger.h"
@@ -35,7 +36,8 @@ namespace MagicPodsCore {
         // Read by the deferred restart off the DBus thread, so it is atomic like the attempt counter.
         std::atomic<bool> _connected{};
         Event<bool> _onConnectedPropertyChangedEvent{};
-        Event<std::string> _onClientLinkLostEvent{};
+        std::atomic<ClientState> _clientState{ClientState::Disconnected};
+        Event<ClientState> _onClientStateChangedEvent{};
         Event<Capability> _onCapabilityChangedEvent{};
         Event<uint8_t> _onHandsFreeBatteryPropertyChangedEvent{};
         size_t clientReceivedDataEventId;
@@ -50,6 +52,7 @@ namespace MagicPodsCore {
         bool TryStartClient();
         void StartClient();
         void RestartClientAfterConnectionLost();
+        void SetClientState(ClientState state);
         std::string GetContainerName();
 
     protected:
@@ -102,9 +105,12 @@ namespace MagicPodsCore {
             return _audioClient;
         }
 
-        // Raised when the client socket died on its own while the adapter still reports the device as connected. Only the state which came over that socket is stale.
-        Event<std::string>& GetClientLinkLostEvent() {
-            return _onClientLinkLostEvent;
+        ClientState GetClientState() const {
+            return _clientState;
+        }
+
+        Event<ClientState>& GetClientStateChangedEvent() {
+            return _onClientStateChangedEvent;
         }
 
         Event<bool>& GetConnectedPropertyChangedEvent() {

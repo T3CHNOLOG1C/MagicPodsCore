@@ -41,6 +41,12 @@ namespace MagicPodsCore {
     {
     }
 
+    void Device::SetClientState(ClientState state)
+    {
+        if (_clientState.exchange(state) != state)
+            _onClientStateChangedEvent.FireEvent(state);
+    }
+
     void Device::Init()
     {
         Logger::Info("%s: Init", GetName().c_str());
@@ -51,14 +57,13 @@ namespace MagicPodsCore {
             {
                 // The link carries data, so whatever it took to get here worked
                 _clientReconnectAttempts = 0;
+                SetClientState(ClientState::Connected);
                 OnResponseDataReceived(data);
             });
 
             clientConnectionLostEventId = _client->GetOnConnectionLostEvent().Subscribe([this](size_t id, const std::string &address)
             {
                 Logger::Info("%s: client connection lost while still reported as connected", GetName().c_str());
-                // Only the state which came over the dead socket is dropped here. The capabilities are kept while the restart below is in flight and are dropped only once it gives up.
-                _onClientLinkLostEvent.FireEvent(address);
                 RestartClientAfterConnectionLost();
             });
         }
@@ -83,6 +88,7 @@ namespace MagicPodsCore {
                 }
                 else{
                     _client->Stop();
+                    SetClientState(ClientState::Disconnected);
                     Logger::Info("%s _client stopped from PropertiesChanged", GetName().c_str());
                 }
             }
@@ -100,17 +106,16 @@ namespace MagicPodsCore {
     void Device::RestartClientAfterConnectionLost()
     {
         // A disconnect is already on its way and will start the client again by itself.
-        if (!_connected)
+        if (!_connected) {
+            SetClientState(ClientState::Disconnected);
             return;
+        }
+
+        SetClientState(ClientState::Reconnecting);
 
         if (_clientReconnectAttempts >= MAX_CLIENT_RECONNECT_ATTEMPTS){
-            // Out of attempts. The adapter still holds the device connected, so it stays connected here as well and only the capabilities holding stale values are cleared, the way a disconnect clears them.
-            // A false connected event instead would leave _connected out of step with the event and make the real disconnect fire twice.
-            Logger::Info("%s: client did not stay connected, dropping capabilities", GetName().c_str());
-            for (auto& capability : capabilities){
-                capability->Reset();
-                _onCapabilityChangedEvent.FireEvent(*capability);
-            }
+            Logger::Info("%s: client did not stay connected, dropping client capabilities", GetName().c_str());
+            SetClientState(ClientState::Disconnected);
             return;
         }
 
@@ -158,9 +163,16 @@ namespace MagicPodsCore {
 
     void Device::StartClient()
     {
+        if (_client->IsStarted()) {
+            SetClientState(ClientState::Connected);
+            return;
+        }
+
         // The adapter reports the device connected before its RFCOMM service accepts anything, so a start right after a reconnect can fail outright.
         // The calling thread makes one attempt, as it always did, and the retries with their waits are handed off so the DBus dispatcher is never held up by them.
-        if (!TryStartClient())
+        if (TryStartClient())
+            SetClientState(ClientState::Connected);
+        else
             RestartClientAfterConnectionLost();
     }
 

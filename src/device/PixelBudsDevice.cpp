@@ -175,23 +175,16 @@ namespace MagicPodsCore
         // The channel is not known in advance, GetSoftwareInfo is sent once and the answer carries the channel to use whichever one it was addressed to
         _clientStartData = CreateChannelProbes();
 
-        _connectedPropertyChangedId = GetConnectedPropertyChangedEvent().Subscribe([this](size_t id, bool isConnected)
+        _clientStateChangedId = GetClientStateChangedEvent().Subscribe([this](size_t id, ClientState state)
             {
-                if (!isConnected)
+                if (state != ClientState::Connected)
                     ResetProtocolState();
-            });
-
-        // The peer holding the channel can go away on its own when the buds hand the primary role over, the adapter reports the device as connected through that
-        _clientLinkLostId = GetClientLinkLostEvent().Subscribe([this](size_t id, const std::string &address)
-            {
-                ResetProtocolState();
             });
     }
 
     PixelBudsDevice::~PixelBudsDevice()
     {
-        GetConnectedPropertyChangedEvent().Unsubscribe(_connectedPropertyChangedId);
-        GetClientLinkLostEvent().Unsubscribe(_clientLinkLostId);
+        GetClientStateChangedEvent().Unsubscribe(_clientStateChangedId);
     }
 
     std::shared_ptr<PixelBudsDevice> PixelBudsDevice::Create(std::shared_ptr<DBusDeviceInfo> deviceInfo, std::shared_ptr<PulseAudioClient> audioClient, std::shared_ptr<SettingsService> settingsService, unsigned short model)

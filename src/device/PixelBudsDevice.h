@@ -28,8 +28,7 @@ namespace MagicPodsCore
         Hdlc _hdlc{};
         std::optional<uint32_t> _channelId{};
         uint32_t _nextCallId = 1;
-        size_t _connectedPropertyChangedId{};
-        size_t _clientLinkLostId{};
+        size_t _clientStateChangedId{};
 
         void OnResponseDataReceived(const std::vector<unsigned char> &data) override;
         bool ShouldStopSendingStartData() const override;
