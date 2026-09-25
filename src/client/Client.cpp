@@ -22,10 +22,19 @@ namespace MagicPodsCore {
         : _address{address}, _serviceUuid{serviceUuid}, _connectionType{connectionType} {}
 
     void Client::Start(const std::function<void(Client&)>& justAfterStartLogic) {
-        std::lock_guard lockGuard{_startStopMutex};
+        std::lock_guard lifecycleLock{_lifecycleMutex};
 
-        if (_isStarted)
-            return;
+        {
+            std::lock_guard stateLock{_startStopMutex};
+            if (_isStarted)
+                return;
+        }
+
+        // The reader may finish through StopIfCurrent(), so join it without holding the state mutex.
+        if (_readingThread.joinable())
+            _readingThread.join();
+
+        std::lock_guard stateLock{_startStopMutex};
         _isStarted = true;
 
         Logger::Info("%s Start Bluetooth client", _address.c_str());
@@ -61,7 +70,7 @@ namespace MagicPodsCore {
             Logger::Debug("%s Writing thread stopped", _address.c_str());
         });
 
-        std::thread readingThread([this, socket, generation]() {
+        _readingThread = std::thread([this, socket, generation]() {
             unsigned char buffer[1024];
             std::vector<unsigned char> vectorBuffer(1024); // optimize
             while(_isStarted && _connectionGeneration == generation) {
@@ -88,14 +97,19 @@ namespace MagicPodsCore {
                 _onConnectionLostEvent.FireEvent(_address);
             }
         });
-        readingThread.detach();
-
         justAfterStartLogic(*this);
     }
 
     void Client::Stop() {
-        std::lock_guard lockGuard{_startStopMutex};
-        StopLocked();
+        std::lock_guard lifecycleLock{_lifecycleMutex};
+
+        {
+            std::lock_guard stateLock{_startStopMutex};
+            StopLocked();
+        }
+
+        if (_readingThread.joinable())
+            _readingThread.join();
     }
 
     bool Client::StopIfCurrent(uint64_t generation) {

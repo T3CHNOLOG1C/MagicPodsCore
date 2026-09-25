@@ -47,9 +47,11 @@ namespace MagicPodsCore {
         // Counts the connections made by Start(). The threads of a connection carry its number, so one left over from a connection which was already stopped and replaced can tell it is stale.
         std::atomic<uint64_t> _connectionGeneration{0};
 
+        std::mutex _lifecycleMutex{};
         std::mutex _startStopMutex{};
-        // The writer blocks on the queue, so Stop() has to wake and join it. The reader is unblocked by closing the socket and is left to finish on its own, since Stop() runs on it when the connection is lost.
+        // The reader may call StopIfCurrent(), so it is joined without holding _startStopMutex.
         std::thread _writingThread{};
+        std::thread _readingThread{};
 
         BlockingQueue<std::vector<unsigned char>> _outcomeMessagesQueue{};
 
