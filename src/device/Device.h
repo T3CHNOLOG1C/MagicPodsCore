@@ -27,7 +27,7 @@ namespace MagicPodsCore {
     class Device : public std::enable_shared_from_this<Device> {
     private:
         // How many times the client is restarted after it goes down without a disconnect to explain it
-        static constexpr int MAX_CLIENT_RECONNECT_ATTEMPTS = 3;
+        static constexpr int MAX_CLIENT_RECONNECT_ATTEMPTS = 12;
 
         std::shared_ptr<DBusDeviceInfo> _deviceInfo{};
         std::shared_ptr<PulseAudioClient> _audioClient{};
